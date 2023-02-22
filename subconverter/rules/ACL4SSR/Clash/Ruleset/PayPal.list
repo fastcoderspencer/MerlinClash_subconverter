@@ -1,6 +1,8 @@
 # PayPal
 # PROCESS-NAME,com.paypal.android.p2pmobile
+
 DOMAIN-KEYWORD,paypal
+
 DOMAIN-SUFFIX,paypal.com
 DOMAIN-SUFFIX,paypal.me
 DOMAIN-SUFFIX,paypal-mktg.com
