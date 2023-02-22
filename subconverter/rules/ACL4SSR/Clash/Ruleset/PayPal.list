@@ -1,10 +1,6 @@
-# PayPal
-# PROCESS-NAME,com.paypal.android.p2pmobile
-
-# KEYWORD
+# 内容：Paypal
+# 数量：5条
 DOMAIN-KEYWORD,paypal
-
-# DOMAIN-SUFFIX
 DOMAIN-SUFFIX,paypal.com
 DOMAIN-SUFFIX,paypal.me
 DOMAIN-SUFFIX,paypal-mktg.com
