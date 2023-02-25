@@ -1,0 +1,29 @@
+# 内容：UltraPayGo
+# 数量：1条
+
+# AT&T:
+#epdg.epc.att.net
+#sentitlement2.mobile.att.net
+#vvm.mobile.att.net
+#mmsc.mobile.att.net
+
+# Verizon:
+#wo.vzwwo.com
+#sg.vzwfemto.com
+
+# T-Mobile:
+#epdg.epc.mnc260.mcc310.pub.3gppnetwork.org
+#ss.epdg.epc.mnc260.mcc310.pub.3gppnetwork.org
+#ss.epdg.epc.geo.mnc260.mcc310.pub.3gppnetwork.org
+
+# UltraPayGo
+#address=/depdg.epc.mnc260.mcc310.pub.3gppnetwork.org/208.54.49.131
+#address=/ss.epdg.epc.mnc260.mcc310.pub.3gppnetwork.org/208.54.36.3
+#address=/epdg.epc.mnc260.mcc310.pub.3gppnetwork.org/208.54.35.163
+#address=/ss.epdg.epc.mnc260.mcc310.pub.3gppnetwork.org/208.54.35.163
+#address=/ss.epdg.epc.geo.mnc260.mcc310.pub.3gppnetwork.org /208.54.87.3
+
+# 自己抓包看到的只有这个ss.epdg.epc.mnc260.mcc310.pub.3gppnetwork.org
+DOMAIN-SUFFIX,mnc260.mcc310.pub.3gppnetwork.org
+
+
