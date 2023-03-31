@@ -1,6 +1,6 @@
 # 内容：国外媒体列表
-# 更新：2022-10-23 19:43:52
-# 数量：328条
+# 更新：2023-03-12 21:43:01
+# 数量：350条
 
 # ABC
 DOMAIN-SUFFIX,edgedatg.com
@@ -9,10 +9,13 @@ DOMAIN-SUFFIX,go.com
 # AbemaTV
 USER-AGENT,AbemaTV*
 DOMAIN-KEYWORD,abematv.akamaized.net
+DOMAIN,api-abematv.bucketeer.jp
+DOMAIN-SUFFIX,abema-tv.com
 DOMAIN-SUFFIX,abema.io
 DOMAIN-SUFFIX,abema.tv
 DOMAIN-SUFFIX,ameba.jp
 DOMAIN-SUFFIX,hayabusa.io
+DOMAIN-SUFFIX,hayabusa.media
 
 # All4
 USER-AGENT,All4*
@@ -304,6 +307,30 @@ DOMAIN-SUFFIX,dmc.nico
 DOMAIN-SUFFIX,nicovideo.jp
 DOMAIN-SUFFIX,nimg.jp
 
+# NivodTV
+DOMAIN-KEYWORD,nivod
+DOMAIN-SUFFIX,biggggg.com
+DOMAIN-SUFFIX,mudvod.tv
+DOMAIN-SUFFIX,nbys.tv
+DOMAIN-SUFFIX,nbys1.tv
+DOMAIN-SUFFIX,nbyy.tv
+DOMAIN-SUFFIX,newpppp.com
+DOMAIN-SUFFIX,nivod.tv
+DOMAIN-SUFFIX,nivodi.tv
+DOMAIN-SUFFIX,nivodz.com
+DOMAIN-SUFFIX,vod360.net
+
+# Olevod
+DOMAIN-KEYWORD,olevod
+DOMAIN-SUFFIX,haiwaikan.com
+DOMAIN-SUFFIX,iole.tv
+DOMAIN-SUFFIX,olehd.com
+DOMAIN-SUFFIX,olelive.com
+DOMAIN-SUFFIX,olevod.com
+DOMAIN-SUFFIX,olevod.io
+DOMAIN-SUFFIX,olevod.tv
+DOMAIN-SUFFIX,olevodtv.com
+
 # PBS
 USER-AGENT,PBS*
 DOMAIN-SUFFIX,pbs.org
@@ -373,7 +400,6 @@ DOMAIN-SUFFIX,twitchcdn.net
 
 # ViuTV
 USER-AGENT,Viu*
-USER-AGENT,ViuTV*
 PROCESS-NAME,com.viu.pad
 PROCESS-NAME,com.viu.phone
 PROCESS-NAME,com.vuclip.viu
