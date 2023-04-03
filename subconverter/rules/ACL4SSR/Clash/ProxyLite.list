@@ -324,9 +324,9 @@ IP-CIDR,147.92.128.0/17,no-resolve
 IP-CIDR,203.104.128.0/19,no-resolve
 
 # OpenAi
-DOMAIN-SUFFIX,openai.com
-DOMAIN-SUFFIX,challenges.cloudflare.com
-DOMAIN-SUFFIX,ai.com
+#DOMAIN-SUFFIX,openai.com
+#DOMAIN-SUFFIX,challenges.cloudflare.com
+#DOMAIN-SUFFIX,ai.com
 
 # OneDrive
 DOMAIN-KEYWORD,1drv
