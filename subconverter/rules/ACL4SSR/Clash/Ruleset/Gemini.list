@@ -1,21 +1,21 @@
-# 内容：DiyStrategy
-
-#美国之声
-DOMAIN-SUFFIX,voachinese.com
-DOMAIN-SUFFIX,voachineseblog.com
-
-#大纪元
-DOMAIN-SUFFIX,epochtimes-bg.com
-DOMAIN-SUFFIX,epochtimes-romania.com
-DOMAIN-SUFFIX,epochtimes.co.il
-DOMAIN-SUFFIX,epochtimes.co.kr
-DOMAIN-SUFFIX,epochtimes.com
-DOMAIN-SUFFIX,epochtimes.cz
-DOMAIN-SUFFIX,epochtimes.de
-DOMAIN-SUFFIX,epochtimes.fr
-DOMAIN-SUFFIX,epochtimes.ie
-DOMAIN-SUFFIX,epochtimes.it
-DOMAIN-SUFFIX,epochtimes.jp
-DOMAIN-SUFFIX,epochtimes.ru
-DOMAIN-SUFFIX,epochtimes.se
-DOMAIN-SUFFIX,epochtimestr.com
+# NAME: Gemini
+# AUTHOR: blackmatrix7
+# REPO: https://github.com/blackmatrix7/ios_rule_script
+# UPDATED: 2024-02-25 16:06:06
+# DOMAIN: 3
+# DOMAIN-KEYWORD: 3
+# DOMAIN-SUFFIX: 7
+# TOTAL: 13
+DOMAIN,ai.google.dev
+DOMAIN,alkalimakersuite-pa.clients6.google.com
+DOMAIN,makersuite.google.com
+DOMAIN-SUFFIX,bard.google.com
+DOMAIN-SUFFIX,deepmind.com
+DOMAIN-SUFFIX,deepmind.google
+DOMAIN-SUFFIX,gemini.google.com
+DOMAIN-SUFFIX,generativeai.google
+DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com
+DOMAIN-SUFFIX,apis.google.com
+DOMAIN-KEYWORD,colab
+DOMAIN-KEYWORD,developerprofiles
+DOMAIN-KEYWORD,generativelanguage
