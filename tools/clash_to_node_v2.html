@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clash YAML 转 链接工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --primary: #3b82f6;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .box {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .label {
+            padding: 10px 15px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #6b7280;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        textarea {
+            flex: 1;
+            width: 100%;
+            border: none;
+            padding: 15px;
+            resize: none;
+            font-family: "Menlo", "Monaco", "Consolas", "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            background-color: #fefeff;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .btn:hover {
+            background-color: #2563eb;
+        }
+
+        #status {
+            font-size: 0.8rem;
+            color: #ef4444;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>
+        <span>Clash YAML ➔ URL Links</span>
+        <span id="status"></span>
+    </h1>
+
+    <div class="container">
+        <div class="box">
+            <div class="label">输入 Clash 配置 (YAML)</div>
+            <textarea id="inputArea" spellcheck="false" placeholder="粘贴你的 YAML 内容..."></textarea>
+        </div>
+
+        <div class="box">
+            <div class="label">
+                转换结果
+                <button class="btn" onclick="copyResult()">复制结果</button>
+            </div>
+            <textarea id="outputArea" readonly placeholder="结果将显示在这里..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        // UTF-8 安全的 Base64 编码函数
+        function utf8_to_b64(str) {
+            return window.btoa(unescape(encodeURIComponent(str)));
+        }
+
+        // URL Safe Base64 (用于 SSR)
+        function b64_safe(str) {
+            return utf8_to_b64(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        // 获取 DOM 元素
+        const inputArea = document.getElementById('inputArea');
+        const outputArea = document.getElementById('outputArea');
+        const statusSpan = document.getElementById('status');
+
+        // 默认示例数据
+        const defaultData = `# 这是例子数据，转换请删除
+port: 7890
+socks-port: 7891
+allow-lan: true
+mode: Rule
+log-level: info
+external-controller: 0.0.0.0:9090
+proxies:
+  - {"name":"🇿🇦_ZA_南非_1","server":"156.251.191.241","port":32898,"type":"vmess","uuid":"7204d6b8-ddaf-417b-c8d8-5f983dc9f6cb","alterId":0,"cipher":"auto","country":"🇿🇦_ZA_南非_1","skip-cert-verify":true,"tls":false,"network":"tcp"}
+  - {"name":"🇨🇳_CN_中国->🇭🇰_HK_香港_2","server":"120.233.10.71","port":38007,"type":"ss","country":"🇨🇳_CN_中国->🇭🇰_HK_香港_2","cipher":"chacha20-ietf-poly1305","password":"66aa4ba9-8df9-4d58-ad8e-1026a2b0219b"}
+  - {"name":"🇨🇳_CN_中国->🇯🇵_JP_日本_3","server":"hncu.relay.qchwnd.moe","port":10201,"type":"trojan","country":"🇨🇳_CN_中国->🇯🇵_JP_日本_3","skip-cert-verify":true,"udp":true,"password":"5b059403-c05c-4609-ab01-a9352041d2e4"}
+  - {"name":"🇷🇺_RU_俄罗斯联邦_4","server":"213.183.53.200","port":9005,"type":"ssr","country":"🇷🇺_RU_俄罗斯联邦_4","password":"ZET59LF6DvCC8KVt","cipher":"aes-256-cfb","protocol":"origin","obfs":"plain"}
+`;
+
+        inputArea.value = defaultData;
+
+        // 核心转换逻辑
+        function convert() {
+            const yamlText = inputArea.value;
+            statusSpan.innerText = "";
+            
+            try {
+                const doc = jsyaml.load(yamlText);
+                
+                if (!doc || !doc.proxies) {
+                    outputArea.value = "";
+                    return;
+                }
+
+                const links = doc.proxies.map(proxy => {
+                    const name = proxy.name || 'node';
+                    
+                    // 1. VMESS
+                    if (proxy.type === 'vmess') {
+                        const config = {
+                            v: "2",
+                            ps: name,
+                            add: proxy.server,
+                            port: proxy.port,
+                            id: proxy.uuid,
+                            aid: proxy.alterId || 0,
+                            scy: proxy.cipher || "auto",
+                            net: proxy.network || "tcp",
+                            type: "none",
+                            host: (proxy['ws-headers'] && proxy['ws-headers'].Host) || proxy.servername || "",
+                            path: proxy['ws-path'] || "",
+                            tls: proxy.tls ? "tls" : ""
+                        };
+                        return "vmess://" + utf8_to_b64(JSON.stringify(config));
+                    }
+
+                    // 2. SS (Shadowsocks)
+                    if (proxy.type === 'ss') {
+                        // ss://base64(method:password@server:port)#name
+                        const userInfo = `${proxy.cipher}:${proxy.password}@${proxy.server}:${proxy.port}`;
+                        // SS 的 base64 部分通常不需要 URL Safe，但处理中文备注需要 encodeURIComponent
+                        return `ss://${utf8_to_b64(userInfo)}#${encodeURIComponent(name)}`;
+                    }
+
+                    // 3. Trojan
+                    if (proxy.type === 'trojan') {
+                        let link = `trojan://${proxy.password}@${proxy.server}:${proxy.port}`;
+                        const params = [];
+                        if (proxy.sni) params.push(`peer=${proxy.sni}&sni=${proxy.sni}`);
+                        // 很多客户端默认开启 skip-cert-verify，这里可按需添加 allowInsecure=1
+                        if (params.length > 0) link += "?" + params.join("&");
+                        link += `#${encodeURIComponent(name)}`;
+                        return link;
+                    }
+
+                    // 4. SSR
+                    if (proxy.type === 'ssr') {
+                        // server:port:protocol:method:obfs:base64pass/?params
+                        const password = b64_safe(proxy.password);
+                        const obfsParam = b64_safe(proxy['obfs-param'] || "");
+                        const protoParam = b64_safe(proxy['protocol-param'] || "");
+                        const remarks = b64_safe(name);
+                        const group = b64_safe("ClashConvert");
+
+                        const core = `${proxy.server}:${proxy.port}:${proxy.protocol}:${proxy.cipher}:${proxy.obfs}:${password}`;
+                        const params = `/?obfsparam=${obfsParam}&protoparam=${protoParam}&remarks=${remarks}&group=${group}`;
+                        
+                        return "ssr://" + b64_safe(core + params);
+                    }
+
+                    return null;
+                }).filter(link => link !== null);
+
+                outputArea.value = links.join('\n');
+
+            } catch (e) {
+                console.error(e);
+                statusSpan.innerText = "YAML 格式错误: " + e.message.split('\n')[0];
+            }
+        }
+
+        // 复制功能
+        function copyResult() {
+            outputArea.select();
+            document.execCommand('copy');
+            const originalText = document.querySelector('.btn').innerText;
+            document.querySelector('.btn').innerText = "已复制!";
+            setTimeout(() => {
+                document.querySelector('.btn').innerText = originalText;
+            }, 1500);
+        }
+
+        // 监听输入
+        inputArea.addEventListener('input', convert);
+
+        // 初始化运行一次
+        window.onload = convert;
+
+    </script>
+</body>
+</html>
