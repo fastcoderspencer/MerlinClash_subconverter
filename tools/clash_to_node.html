@@ -40,6 +40,8 @@
             flex-direction: column;
             gap: 20px;
             flex: 1;
+            min-height: 0; /* 关键：限制 container 不被子元素撑开 */
+            overflow: hidden; /* 关键：防止溢出 */
         }
 
         .box {
@@ -51,18 +53,71 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             overflow: hidden;
             border: 1px solid var(--border);
+            position: relative;
+            min-height: 0; /* 关键 */
+            height: 100%; /* 确保占满分配的空间 */
         }
 
-        .label {
-            padding: 10px 15px;
-            background: #f9fafb;
-            border-bottom: 1px solid var(--border);
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: #6b7280;
+        .textarea-container {
+            position: relative;
+            flex: 1;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            overflow: hidden;
+            min-height: 0; /* 关键 */
+            height: 100%; /* 关键 */
+        }
+
+        .line-numbers {
+            width: 40px;
+            background-color: #f9fafb;
+            border-right: 1px solid var(--border);
+            color: #9ca3af;
+            text-align: right;
+            padding: 15px 5px;
+            font-family: "Menlo", "Monaco", "Consolas", "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            box-sizing: border-box;
+            user-select: none;
+            overflow: hidden;
+            flex-shrink: 0; /* 防止被压缩 */
+        }
+        
+        .editor-wrapper {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0; /* 关键 */
+            height: 100%; /* 关键 */
+        }
+
+        .backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 15px;
+            box-sizing: border-box;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden; /* Scroll synced via JS */
+            font-family: "Menlo", "Monaco", "Consolas", "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre;
+            color: var(--text);
+            background-color: transparent;
+        }
+
+        .active-line {
+            color: #2563eb; /* Blue */
+            font-weight: bold;
+            background-color: rgba(37, 99, 235, 0.1); /* Subtle blue bg */
+            display: inline-block;
+            width: 100%;
         }
 
         textarea {
@@ -76,10 +131,28 @@
             line-height: 1.5;
             outline: none;
             box-sizing: border-box;
+            background: transparent;
+            position: relative;
+            z-index: 2;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow: auto; /* Allow scrolling */
+            color: transparent; /* Hide text but keep caret */
+            caret-color: #333;
         }
 
-        textarea:focus {
-            background-color: #fefeff;
+        .label {
+            padding: 10px 15px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #6b7280;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 3; /* Ensure label is above highlighter */
+            position: relative;
         }
 
         .btn {
@@ -106,14 +179,20 @@
 <body>
 
     <h1>
-        <span>Clash YAML ➔ URL Links</span>
+        <span>Clash YAML ⇄ URL Links</span>
         <span id="status"></span>
     </h1>
 
     <div class="container">
         <div class="box">
             <div class="label">输入 Clash 配置 (YAML)</div>
-            <textarea id="inputArea" spellcheck="false" placeholder="粘贴你的 YAML 内容..."></textarea>
+            <div class="textarea-container">
+                <div class="line-numbers" id="inputLineNumbers">1</div>
+                <div class="editor-wrapper">
+                    <div class="backdrop" id="inputBackdrop"></div>
+                    <textarea id="inputArea" spellcheck="false" placeholder="粘贴你的 YAML 内容..."></textarea>
+                </div>
+            </div>
         </div>
 
         <div class="box">
@@ -121,7 +200,13 @@
                 转换结果
                 <button class="btn" onclick="copyResult()">复制结果</button>
             </div>
-            <textarea id="outputArea" readonly placeholder="结果将显示在这里..."></textarea>
+            <div class="textarea-container">
+                <div class="line-numbers" id="outputLineNumbers">1</div>
+                <div class="editor-wrapper">
+                    <div class="backdrop" id="outputBackdrop"></div>
+                    <textarea id="outputArea" spellcheck="false" placeholder="在此粘贴链接，上方将自动转换为 YAML..."></textarea>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -129,6 +214,20 @@
         // UTF-8 安全的 Base64 编码函数
         function utf8_to_b64(str) {
             return window.btoa(unescape(encodeURIComponent(str)));
+        }
+
+        // 通用 Base64 解码 (支持 URL Safe)
+        function b64_decode(str) {
+            // 替换 URL Safe 字符
+            str = str.replace(/-/g, '+').replace(/_/g, '/');
+            // 补全 padding
+            while (str.length % 4) str += '=';
+            try {
+                return decodeURIComponent(escape(window.atob(str)));
+            } catch (e) {
+                console.warn('Base64 decode warning:', e);
+                return window.atob(str); // Fallback for non-UTF8
+            }
         }
 
         // URL Safe Base64 (用于 SSR)
@@ -140,6 +239,9 @@
         const inputArea = document.getElementById('inputArea');
         const outputArea = document.getElementById('outputArea');
         const statusSpan = document.getElementById('status');
+
+        // 状态锁，防止循环触发
+        let isConverting = false;
 
         // 默认示例数据
         const defaultData = `# 这是例子数据，转换请删除
@@ -158,10 +260,15 @@ proxies:
   - {"name":"Hysteria 示例","server":"hy.example.com","port":8443,"type":"hysteria","auth":"123456","protocol":"udp","up":50,"down":100,"alpn":"hysteria","obfs":"xplus","obfsParam":"123456","sni":"hy.example.com","skip-cert-verify":true}
 `;
 
-        inputArea.value = defaultData;
+        if (!inputArea.value) {
+            inputArea.value = defaultData;
+        }
 
-        // 核心转换逻辑
-        function convert() {
+        // YAML -> Links
+        function convertToLinks() {
+            if (isConverting) return;
+            isConverting = true;
+
             const yamlText = inputArea.value;
             statusSpan.innerText = "";
             
@@ -169,7 +276,7 @@ proxies:
                 const doc = jsyaml.load(yamlText);
                 
                 if (!doc || !doc.proxies) {
-                    outputArea.value = "";
+                    // outputArea.value = ""; // 保留用户可能正在输入的内容
                     return;
                 }
 
@@ -197,9 +304,7 @@ proxies:
 
                     // 2. SS (Shadowsocks)
                     if (proxy.type === 'ss') {
-                        // ss://base64(method:password@server:port)#name
                         const userInfo = `${proxy.cipher}:${proxy.password}@${proxy.server}:${proxy.port}`;
-                        // SS 的 base64 部分通常不需要 URL Safe，但处理中文备注需要 encodeURIComponent
                         return `ss://${utf8_to_b64(userInfo)}#${encodeURIComponent(name)}`;
                     }
 
@@ -208,7 +313,7 @@ proxies:
                         let link = `trojan://${proxy.password}@${proxy.server}:${proxy.port}`;
                         const params = [];
                         if (proxy.sni) params.push(`peer=${proxy.sni}&sni=${proxy.sni}`);
-                        // 很多客户端默认开启 skip-cert-verify，这里可按需添加 allowInsecure=1
+                        if (proxy['skip-cert-verify']) params.push('allowInsecure=1');
                         if (params.length > 0) link += "?" + params.join("&");
                         link += `#${encodeURIComponent(name)}`;
                         return link;
@@ -216,7 +321,6 @@ proxies:
 
                     // 4. SSR
                     if (proxy.type === 'ssr') {
-                        // server:port:protocol:method:obfs:base64pass/?params
                         const password = b64_safe(proxy.password);
                         const obfsParam = b64_safe(proxy['obfs-param'] || "");
                         const protoParam = b64_safe(proxy['protocol-param'] || "");
@@ -229,6 +333,7 @@ proxies:
                         return "ssr://" + b64_safe(core + params);
                     }
 
+                    // 5. Hysteria2
                     if (proxy.type === 'hysteria2' || proxy.type === 'hy2') {
                         const auth = proxy.auth || proxy.password || '';
                         let link = 'hysteria2://';
@@ -245,6 +350,7 @@ proxies:
                         return link;
                     }
 
+                    // 6. Hysteria
                     if (proxy.type === 'hysteria') {
                         let link = `hysteria://${proxy.server}:${proxy.port}`;
                         const params = [];
@@ -278,6 +384,164 @@ proxies:
             } catch (e) {
                 console.error(e);
                 statusSpan.innerText = "YAML 格式错误: " + e.message.split('\n')[0];
+            } finally {
+                isConverting = false;
+            }
+        }
+
+        // Links -> YAML
+        function convertToYaml() {
+            if (isConverting) return;
+            isConverting = true;
+
+            const linksText = outputArea.value;
+            statusSpan.innerText = "";
+            
+            try {
+                const lines = linksText.split(/[\r\n]+/).map(l => l.trim()).filter(l => l);
+                const proxies = [];
+
+                lines.forEach(line => {
+                    try {
+                        let proxy = null;
+                        
+                        // VMess
+                        if (line.startsWith('vmess://')) {
+                            const b64 = line.substring(8);
+                            const config = JSON.parse(b64_decode(b64));
+                            proxy = {
+                                name: config.ps,
+                                server: config.add,
+                                port: parseInt(config.port),
+                                type: 'vmess',
+                                uuid: config.id,
+                                alterId: parseInt(config.aid || 0),
+                                cipher: config.scy || 'auto',
+                                network: config.net || 'tcp',
+                                tls: config.tls === 'tls',
+                                "skip-cert-verify": true
+                            };
+                            if (config.host) proxy.servername = config.host;
+                            if (config.path) proxy['ws-path'] = config.path;
+                            if (config.net === 'ws') {
+                                proxy['ws-headers'] = { Host: config.host || "" };
+                            }
+                        }
+                        
+                        // SS
+                        else if (line.startsWith('ss://')) {
+                            let raw = line.substring(5);
+                            let name = "SS Node";
+                            if (raw.includes('#')) {
+                                const parts = raw.split('#');
+                                raw = parts[0];
+                                name = decodeURIComponent(parts[1]);
+                            }
+                            
+                            let userInfo = "";
+                            if (!raw.includes('@')) {
+                                userInfo = b64_decode(raw);
+                            } else {
+                                userInfo = raw; 
+                            }
+                            
+                            const atIndex = userInfo.lastIndexOf('@');
+                            if (atIndex !== -1) {
+                                const methodPass = userInfo.substring(0, atIndex);
+                                const hostPort = userInfo.substring(atIndex + 1);
+                                
+                                const colonIndex = methodPass.indexOf(':');
+                                const method = methodPass.substring(0, colonIndex);
+                                const password = methodPass.substring(colonIndex + 1);
+                                
+                                const portColon = hostPort.lastIndexOf(':');
+                                const server = hostPort.substring(0, portColon);
+                                const port = parseInt(hostPort.substring(portColon + 1));
+                                
+                                proxy = {
+                                    name: name,
+                                    type: 'ss',
+                                    server: server,
+                                    port: port,
+                                    cipher: method,
+                                    password: password
+                                };
+                            }
+                        }
+                        
+                        // Trojan
+                        else if (line.startsWith('trojan://')) {
+                            const url = new URL(line);
+                            const params = new URLSearchParams(url.search);
+                            proxy = {
+                                name: decodeURIComponent(url.hash.substring(1)) || 'Trojan Node',
+                                type: 'trojan',
+                                server: url.hostname,
+                                port: parseInt(url.port),
+                                password: url.username,
+                                "skip-cert-verify": params.get('allowInsecure') === '1' || params.get('insecure') === '1',
+                                sni: params.get('sni') || params.get('peer')
+                            };
+                            if (!proxy.sni) delete proxy.sni;
+                        }
+                        
+                        // Hysteria 2
+                        else if (line.startsWith('hysteria2://') || line.startsWith('hy2://')) {
+                            const url = new URL(line.replace('hy2://', 'hysteria2://'));
+                            const params = new URLSearchParams(url.search);
+                            proxy = {
+                                name: decodeURIComponent(url.hash.substring(1)) || 'Hy2 Node',
+                                type: 'hysteria2',
+                                server: url.hostname,
+                                port: parseInt(url.port),
+                                password: url.username || params.get('auth') || '',
+                                "skip-cert-verify": params.get('insecure') === '1',
+                                sni: params.get('sni'),
+                                obfs: params.get('obfs'),
+                                "obfs-password": params.get('obfs-password')
+                            };
+                            // Clean undefined
+                            Object.keys(proxy).forEach(k => proxy[k] === undefined && delete proxy[k]);
+                        }
+
+                        if (proxy) {
+                            proxies.push(proxy);
+                        }
+                    } catch (ex) {
+                        console.warn("解析单行失败:", line, ex);
+                    }
+                });
+
+                if (proxies.length > 0) {
+                    let doc = {};
+                    try {
+                         doc = jsyaml.load(inputArea.value) || {};
+                    } catch(e) { doc = {}; }
+                    
+                    if (!doc.port) doc.port = 7890;
+                    if (!doc['socks-port']) doc['socks-port'] = 7891;
+                    if (!doc['allow-lan']) doc['allow-lan'] = true;
+                    if (!doc.mode) doc.mode = 'Rule';
+                    if (!doc['log-level']) doc['log-level'] = 'info';
+                    if (!doc['external-controller']) doc['external-controller'] = '0.0.0.0:9090';
+
+                    // doc.proxies = proxies; // 使用自定义格式
+                    if (doc.proxies) delete doc.proxies;
+                    
+                    let yaml = jsyaml.dump(doc);
+                    if (yaml.trim() === '{}') yaml = ""; // 处理空对象情况
+                    
+                    yaml += "proxies:\n";
+                    yaml += proxies.map(p => "  - " + JSON.stringify(p)).join("\n");
+                    
+                    inputArea.value = yaml;
+                }
+
+            } catch (e) {
+                console.error(e);
+                statusSpan.innerText = "转换错误: " + e.message;
+            } finally {
+                isConverting = false;
             }
         }
 
@@ -285,18 +549,245 @@ proxies:
         function copyResult() {
             outputArea.select();
             document.execCommand('copy');
-            const originalText = document.querySelector('.btn').innerText;
-            document.querySelector('.btn').innerText = "已复制!";
+            const btn = document.querySelector('.btn');
+            const originalText = btn.innerText;
+            btn.innerText = "已复制!";
             setTimeout(() => {
-                document.querySelector('.btn').innerText = originalText;
+                btn.innerText = originalText;
             }, 1500);
         }
 
         // 监听输入
-        inputArea.addEventListener('input', convert);
+        inputArea.addEventListener('input', convertToLinks);
+        outputArea.addEventListener('input', convertToYaml);
+
+        // 高亮同步逻辑
+        const inputBackdrop = document.getElementById('inputBackdrop');
+        const outputBackdrop = document.getElementById('outputBackdrop');
+        const inputLineNumbers = document.getElementById('inputLineNumbers');
+        const outputLineNumbers = document.getElementById('outputLineNumbers');
+
+        function getLineHeight(el) {
+            const style = window.getComputedStyle(el);
+            return parseFloat(style.lineHeight) || 19.5;
+        }
+
+        function getPaddingTop(el) {
+            const style = window.getComputedStyle(el);
+            return parseFloat(style.paddingTop) || 15;
+        }
+        
+        // 更新行号
+        function updateLineNumbers(textarea, lineNumbersEl) {
+            const lines = textarea.value.split('\n').length;
+            // 至少显示一行
+            const count = Math.max(lines, 1);
+            // 避免频繁 DOM 操作，如果行数没变就不动？
+            // 但如果内容变了行数没变，其实也不用动。
+            // 只有行数变了才重新生成。
+            // 这里为了简单，如果性能有问题再优化。
+            // 实际上可以通过比较 innerHTML 长度或者 stored count。
+            
+            if (lineNumbersEl.getAttribute('data-count') == count) return;
+            
+            let html = '';
+            for (let i = 1; i <= count; i++) {
+                html += `<div>${i}</div>`;
+            }
+            lineNumbersEl.innerHTML = html;
+            lineNumbersEl.setAttribute('data-count', count);
+        }
+
+        // 转义 HTML
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function updateBackdrop(textarea, backdrop, highlightIndex = -1) {
+            const text = textarea.value;
+            
+            // 必须保持字体颜色透明，否则会有重影。
+            // 只有当内容为空时，为了显示 placeholder，才恢复颜色。
+            if (!text) {
+                textarea.style.color = "var(--text)"; 
+                backdrop.innerHTML = "";
+                // 即使为空，也要更新行号（1行）
+                const lineNumbersEl = textarea === inputArea ? inputLineNumbers : outputLineNumbers;
+                updateLineNumbers(textarea, lineNumbersEl);
+                return;
+            } else {
+                textarea.style.color = "transparent";
+            }
+
+            const lines = text.split('\n');
+            
+            let html = "";
+            lines.forEach((line, index) => {
+                const escapedLine = escapeHtml(line) || ' '; 
+                if (index === highlightIndex) {
+                    html += `<span class="active-line">${escapedLine}</span>\n`;
+                } else {
+                    html += `${escapedLine}\n`;
+                }
+            });
+            
+            backdrop.innerHTML = html;
+            
+            // 同步滚动
+            backdrop.scrollTop = textarea.scrollTop;
+            backdrop.scrollLeft = textarea.scrollLeft;
+            
+            // 更新行号
+            const lineNumbersEl = textarea === inputArea ? inputLineNumbers : outputLineNumbers;
+            updateLineNumbers(textarea, lineNumbersEl);
+            lineNumbersEl.scrollTop = textarea.scrollTop;
+        }
+        
+        // 确保某一行在可视区域内
+        function ensureLineVisible(textarea, lineIndex) {
+            if (lineIndex < 0) return;
+            
+            const lineHeight = getLineHeight(textarea);
+            const paddingTop = getPaddingTop(textarea);
+            
+            // 目标行的顶部和底部像素位置 (相对于内容顶端)
+            const lineTop = paddingTop + lineIndex * lineHeight;
+            const lineBottom = lineTop + lineHeight;
+            
+            // 当前视口范围
+            const viewTop = textarea.scrollTop;
+            const viewBottom = viewTop + textarea.clientHeight;
+            
+            // 视口上下预留 2 行缓冲
+            const padding = lineHeight * 2;
+            
+            if (lineTop < viewTop + padding) {
+                // 在视口上方或太靠近顶部 -> 滚上去
+                // 目标是将该行放在视口中间偏上，或者至少留出 padding
+                // 简单处理：滚到 lineTop - padding
+                textarea.scrollTop = Math.max(0, lineTop - padding);
+            } else if (lineBottom > viewBottom - padding) {
+                // 在视口下方或太靠近底部 -> 滚下来
+                // 目标：滚到 lineBottom + padding - clientHeight
+                textarea.scrollTop = lineBottom + padding - textarea.clientHeight;
+            }
+        }
+
+        function getCursorLine(textarea) {
+            const value = textarea.value;
+            const start = textarea.selectionStart;
+            return value.substr(0, start).split('\n').length - 1;
+        }
+
+        // 获取 YAML 中 proxies 列表的起始行索引和每个代理的行号
+        function getProxyLines(yamlText) {
+            const lines = yamlText.split('\n');
+            const proxiesIndex = lines.findIndex(l => l.trim().startsWith('proxies:'));
+            if (proxiesIndex === -1) return [];
+
+            const proxyLines = [];
+            // 从 proxies: 下一行开始查找以 - 开头的行
+            for (let i = proxiesIndex + 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line.startsWith('-')) {
+                    proxyLines.push(i);
+                } else if (line && !line.startsWith('#') && !line.startsWith(' ')) {
+                    // 遇到非缩进、非注释的行，说明列表结束
+                    break;
+                }
+            }
+            return proxyLines;
+        }
+
+        function syncHighlight(source) {
+            let proxyIndex = -1;
+
+            if (source === 'input') {
+                const currentLine = getCursorLine(inputArea);
+                const proxyLines = getProxyLines(inputArea.value);
+                
+                const idx = proxyLines.findIndex(lineNum => lineNum > currentLine);
+                if (idx === -1) {
+                    if (proxyLines.length > 0 && currentLine >= proxyLines[proxyLines.length - 1]) {
+                        proxyIndex = proxyLines.length - 1;
+                    }
+                } else if (idx > 0) {
+                    proxyIndex = idx - 1;
+                } else {
+                    proxyIndex = -1;
+                }
+                
+                if (proxyLines.length > 0) {
+                    const proxiesLabelLine = inputArea.value.split('\n').findIndex(l => l.trim().startsWith('proxies:'));
+                    if (currentLine <= proxiesLabelLine) proxyIndex = -1;
+                }
+
+                // 渲染 Input (为了保持 input 文字可见)
+                // 这里我们始终高亮 input 中对应的行（如果是 proxy）
+                const selfIndex = proxyLines[proxyIndex];
+                updateBackdrop(inputArea, inputBackdrop, selfIndex !== undefined ? selfIndex : -1);
+                
+                // 渲染 Output
+                updateBackdrop(outputArea, outputBackdrop, proxyIndex);
+                
+                // 自动滚动 Output
+                if (proxyIndex !== -1) {
+                    ensureLineVisible(outputArea, proxyIndex);
+                }
+                
+            } else {
+                // source === 'output'
+                const currentLine = getCursorLine(outputArea);
+                proxyIndex = currentLine;
+                
+                // 渲染 Output
+                updateBackdrop(outputArea, outputBackdrop, proxyIndex);
+
+                // 渲染 Input
+                const proxyLines = getProxyLines(inputArea.value);
+                let targetLine = -1;
+                if (proxyIndex >= 0 && proxyIndex < proxyLines.length) {
+                    targetLine = proxyLines[proxyIndex];
+                }
+                
+                updateBackdrop(inputArea, inputBackdrop, targetLine);
+                
+                // 自动滚动 Input
+                if (targetLine !== -1) {
+                    ensureLineVisible(inputArea, targetLine);
+                }
+            }
+        }
+
+        // 事件监听
+        ['click', 'keyup', 'focus', 'input'].forEach(evt => {
+            inputArea.addEventListener(evt, () => syncHighlight('input'));
+            outputArea.addEventListener(evt, () => syncHighlight('output'));
+        });
+
+        // 滚动同步
+        inputArea.addEventListener('scroll', () => {
+             inputBackdrop.scrollTop = inputArea.scrollTop;
+             inputBackdrop.scrollLeft = inputArea.scrollLeft;
+             inputLineNumbers.scrollTop = inputArea.scrollTop;
+        });
+        
+        outputArea.addEventListener('scroll', () => {
+            outputBackdrop.scrollTop = outputArea.scrollTop;
+            outputBackdrop.scrollLeft = outputArea.scrollLeft;
+            outputLineNumbers.scrollTop = outputArea.scrollTop;
+        });
 
         // 初始化运行一次
-        window.onload = convert;
+        window.onload = () => {
+            convertToLinks();
+            syncHighlight('input'); // 初始渲染 backdrop
+        };
 
     </script>
 </body>
