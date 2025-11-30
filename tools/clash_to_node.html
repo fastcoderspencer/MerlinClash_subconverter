@@ -198,7 +198,10 @@
         <div class="box">
             <div class="label">
                 转换结果
-                <button class="btn" onclick="copyResult()">复制结果</button>
+                <div>
+                    <button class="btn" onclick="checkDuplicates()" style="margin-right: 8px;">检查重复</button>
+                    <button class="btn" onclick="copyResult(this)">复制结果</button>
+                </div>
             </div>
             <div class="textarea-container">
                 <div class="line-numbers" id="outputLineNumbers">1</div>
@@ -312,7 +315,9 @@ proxies:
                     if (proxy.type === 'trojan') {
                         let link = `trojan://${proxy.password}@${proxy.server}:${proxy.port}`;
                         const params = [];
-                        if (proxy.sni) params.push(`peer=${proxy.sni}&sni=${proxy.sni}`);
+                        // if (proxy.sni) params.push(`peer=${proxy.sni}&sni=${proxy.sni}`);
+                        // TODO 不加peer
+                        if (proxy.sni) params.push(`sni=${proxy.sni}`);
                         if (proxy['skip-cert-verify']) params.push('allowInsecure=1');
                         if (params.length > 0) link += "?" + params.join("&");
                         link += `#${encodeURIComponent(name)}`;
@@ -545,16 +550,106 @@ proxies:
             }
         }
 
+        // 检查重复
+        function checkDuplicates() {
+            if (isConverting) return;
+            const yamlText = inputArea.value;
+            let doc;
+            try {
+                doc = jsyaml.load(yamlText);
+            } catch (e) {
+                alert("YAML 格式错误，无法检查重复: " + e.message);
+                return;
+            }
+
+            if (!doc || !doc.proxies || !Array.isArray(doc.proxies)) {
+                alert("未找到有效的 proxies 列表");
+                return;
+            }
+
+            const proxies = doc.proxies;
+            const uniqueProxies = [];
+            const seenContent = new Set();
+            const seenNames = new Set();
+            let removedCount = 0;
+            let renamedCount = 0;
+
+            proxies.forEach(proxy => {
+                // 1. 检查完全重复的内容
+                // 对键进行排序以确保 JSON 字符串的一致性
+                const sortedKeys = Object.keys(proxy).sort();
+                const contentObj = {};
+                sortedKeys.forEach(key => contentObj[key] = proxy[key]);
+                const contentStr = JSON.stringify(contentObj);
+
+                if (seenContent.has(contentStr)) {
+                    removedCount++;
+                    return; // 跳过此完全重复的条目
+                }
+                seenContent.add(contentStr);
+
+                // 2. 检查重名
+                let name = proxy.name;
+                // 如果名字已存在，尝试加后缀直到唯一
+                if (seenNames.has(name)) {
+                    let i = 2; 
+                    while (seenNames.has(`${name}_${i}`)) {
+                        i++;
+                    }
+                    const newName = `${name}_${i}`;
+                    proxy.name = newName;
+                    renamedCount++;
+                }
+                seenNames.add(proxy.name);
+                uniqueProxies.push(proxy);
+            });
+
+            if (removedCount === 0 && renamedCount === 0) {
+                alert("未发现重复条目或重名冲突。");
+                return;
+            }
+
+            // 更新 YAML
+            // 保留 doc 中的其他字段，只更新 proxies
+            if (doc.proxies) delete doc.proxies;
+            
+            let yaml = jsyaml.dump(doc);
+            if (yaml.trim() === '{}') yaml = "";
+            
+            yaml += "proxies:\n";
+            yaml += uniqueProxies.map(p => "  - " + JSON.stringify(p)).join("\n");
+
+            inputArea.value = yaml;
+            
+            // 触发同步转换到链接
+            convertToLinks();
+            
+            alert(`检查完成：\n已移除完全重复条目：${removedCount} 个\n已重命名冲突条目：${renamedCount} 个`);
+        }
+
         // 复制功能
-        function copyResult() {
+        function copyResult(btn) {
             outputArea.select();
             document.execCommand('copy');
-            const btn = document.querySelector('.btn');
-            const originalText = btn.innerText;
-            btn.innerText = "已复制!";
-            setTimeout(() => {
-                btn.innerText = originalText;
-            }, 1500);
+            
+            if (!btn) {
+                // Fallback to find the button by text if not passed
+                const btns = document.querySelectorAll('.btn');
+                for (const b of btns) {
+                    if (b.innerText.includes('复制')) {
+                        btn = b;
+                        break;
+                    }
+                }
+            }
+            
+            if (btn) {
+                const originalText = btn.innerText;
+                btn.innerText = "已复制!";
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                }, 1500);
+            }
         }
 
         // 监听输入
