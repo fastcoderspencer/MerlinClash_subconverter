@@ -154,6 +154,8 @@ proxies:
   - {"name":"🇨🇳_CN_中国->🇭🇰_HK_香港_2","server":"120.233.10.71","port":38007,"type":"ss","country":"🇨🇳_CN_中国->🇭🇰_HK_香港_2","cipher":"chacha20-ietf-poly1305","password":"66aa4ba9-8df9-4d58-ad8e-1026a2b0219b"}
   - {"name":"🇨🇳_CN_中国->🇯🇵_JP_日本_3","server":"hncu.relay.qchwnd.moe","port":10201,"type":"trojan","country":"🇨🇳_CN_中国->🇯🇵_JP_日本_3","skip-cert-verify":true,"udp":true,"password":"5b059403-c05c-4609-ab01-a9352041d2e4"}
   - {"name":"🇷🇺_RU_俄罗斯联邦_4","server":"213.183.53.200","port":9005,"type":"ssr","country":"🇷🇺_RU_俄罗斯联邦_4","password":"ZET59LF6DvCC8KVt","cipher":"aes-256-cfb","protocol":"origin","obfs":"plain"}
+  - {"name":"HY2 示例","server":"example.com","port":443,"type":"hysteria2","password":"letmein","sni":"real.example.com","obfs":"salamander","obfs-password":"gawrgura","skip-cert-verify":true}
+  - {"name":"Hysteria 示例","server":"hy.example.com","port":8443,"type":"hysteria","auth":"123456","protocol":"udp","up":50,"down":100,"alpn":"hysteria","obfs":"xplus","obfsParam":"123456","sni":"hy.example.com","skip-cert-verify":true}
 `;
 
         inputArea.value = defaultData;
@@ -225,6 +227,47 @@ proxies:
                         const params = `/?obfsparam=${obfsParam}&protoparam=${protoParam}&remarks=${remarks}&group=${group}`;
                         
                         return "ssr://" + b64_safe(core + params);
+                    }
+
+                    if (proxy.type === 'hysteria2' || proxy.type === 'hy2') {
+                        const auth = proxy.auth || proxy.password || '';
+                        let link = 'hysteria2://';
+                        if (auth) link += `${encodeURIComponent(auth)}@`;
+                        link += `${proxy.server}:${proxy.port}`;
+                        const params = [];
+                        if (proxy.sni) params.push(`sni=${encodeURIComponent(proxy.sni)}`);
+                        if (proxy['skip-cert-verify']) params.push('insecure=1');
+                        if (proxy.obfs) params.push(`obfs=${encodeURIComponent(proxy.obfs)}`);
+                        if (proxy['obfs-password']) params.push(`obfs-password=${encodeURIComponent(proxy['obfs-password'])}`);
+                        if (proxy.pinSHA256) params.push(`pinSHA256=${encodeURIComponent(proxy.pinSHA256)}`);
+                        if (params.length > 0) link += `/?${params.join('&')}`;
+                        link += `#${encodeURIComponent(name)}`;
+                        return link;
+                    }
+
+                    if (proxy.type === 'hysteria') {
+                        let link = `hysteria://${proxy.server}:${proxy.port}`;
+                        const params = [];
+                        const protocol = proxy.protocol || 'udp';
+                        params.push(`protocol=${encodeURIComponent(protocol)}`);
+                        const auth = proxy.auth || proxy.password || '';
+                        if (auth) params.push(`auth=${encodeURIComponent(auth)}`);
+                        if (proxy.sni) params.push(`peer=${encodeURIComponent(proxy.sni)}`);
+                        if (proxy['skip-cert-verify']) params.push('insecure=1');
+                        const up = proxy.upmbps ?? proxy.up_mbps ?? proxy.up;
+                        const down = proxy.downmbps ?? proxy.down_mbps ?? proxy.down;
+                        params.push(`upmbps=${up ?? 10}`);
+                        params.push(`downmbps=${down ?? 50}`);
+                        if (proxy.alpn) {
+                            const alpn = Array.isArray(proxy.alpn) ? proxy.alpn[0] : proxy.alpn;
+                            if (alpn) params.push(`alpn=${encodeURIComponent(alpn)}`);
+                        }
+                        if (proxy.obfs) params.push(`obfs=${encodeURIComponent(proxy.obfs)}`);
+                        const obfsParam = proxy.obfsParam || proxy['obfs-param'];
+                        if (obfsParam) params.push(`obfsParam=${encodeURIComponent(obfsParam)}`);
+                        link += `?${params.join('&')}`;
+                        link += `#${encodeURIComponent(name)}`;
+                        return link;
                     }
 
                     return null;
