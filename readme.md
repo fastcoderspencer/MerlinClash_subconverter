@@ -13,4 +13,4 @@
 
 ## Clash YAML ➔ URL Links
 
-[``](https://fastcoderspencer.github.io/MerlinClash_subconverter/tools/clash_to_node.html)
+[`https://fastcoderspencer.github.io/MerlinClash_subconverter/tools/clash_to_node.html`](https://fastcoderspencer.github.io/MerlinClash_subconverter/tools/clash_to_node.html)
