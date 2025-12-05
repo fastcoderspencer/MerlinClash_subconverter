@@ -27,4 +27,5 @@
 DOMAIN-SUFFIX,mnc260.mcc310.pub.3gppnetwork.org
 
 # ip规则
-IP-CIDR, 208.54.148.227/32
+IP-CIDR, 208.54.148.1/24
+IP-CIDR, 208.54.34.1/24
