@@ -26,4 +26,5 @@
 # 自己抓包看到的只有这个ss.epdg.epc.mnc260.mcc310.pub.3gppnetwork.org
 DOMAIN-SUFFIX,mnc260.mcc310.pub.3gppnetwork.org
 
-
+# ip规则
+IP-CIDR, 208.54.148.227/32
