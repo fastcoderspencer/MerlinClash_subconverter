@@ -382,9 +382,15 @@ proxies:
                         link += `${proxy.server}:${proxy.port}`;
                         const params = [];
                         if (proxy.sni) params.push(`sni=${encodeURIComponent(proxy.sni)}`);
-                        if (proxy['skip-cert-verify']) params.push('insecure=1');
+                        if (Object.prototype.hasOwnProperty.call(proxy, 'skip-cert-verify')) {
+                            params.push(`insecure=${proxy['skip-cert-verify'] ? '1' : '0'}`);
+                        }
                         if (proxy.obfs) params.push(`obfs=${encodeURIComponent(proxy.obfs)}`);
                         if (proxy['obfs-password']) params.push(`obfs-password=${encodeURIComponent(proxy['obfs-password'])}`);
+                        const mport = proxy.mport ?? proxy.ports;
+                        if (mport !== undefined && mport !== null && `${mport}`.trim() !== '') {
+                            params.push(`mport=${encodeURIComponent(`${mport}`.trim())}`);
+                        }
                         if (proxy.pinSHA256) params.push(`pinSHA256=${encodeURIComponent(proxy.pinSHA256)}`);
                         if (params.length > 0) link += `/?${params.join('&')}`;
                         link += `#${encodeURIComponent(name)}`;
@@ -582,19 +588,26 @@ proxies:
                         else if (line.startsWith('hysteria2://') || line.startsWith('hy2://')) {
                             const url = new URL(line.replace('hy2://', 'hysteria2://'));
                             const params = new URLSearchParams(url.search);
+                            const insecureRaw = params.get('insecure') || params.get('allowInsecure') || params.get('allow_insecure');
+                            const skipCertVerify = insecureRaw === '1' || (insecureRaw && insecureRaw.toLowerCase() === 'true');
+                            const mport = params.get('mport') || params.get('ports') || params.get('port-range') || params.get('portRange');
                             proxy = {
                                 name: decodeURIComponent(url.hash.substring(1)) || 'Hy2 Node',
                                 type: 'hysteria2',
                                 server: url.hostname,
                                 port: parseInt(url.port),
                                 password: url.username || params.get('auth') || '',
-                                "skip-cert-verify": params.get('insecure') === '1',
-                                sni: params.get('sni'),
-                                obfs: params.get('obfs'),
-                                "obfs-password": params.get('obfs-password')
+                                "skip-cert-verify": skipCertVerify,
+                                sni: params.get('sni') || params.get('peer') || undefined,
+                                obfs: params.get('obfs') || undefined,
+                                "obfs-password": params.get('obfs-password') || undefined,
+                                ports: mport || undefined,
+                                "hop-interval": 30,
+                                udp: true,
+                                tfo: false
                             };
                             // Clean undefined
-                            Object.keys(proxy).forEach(k => proxy[k] === undefined && delete proxy[k]);
+                            Object.keys(proxy).forEach(k => (proxy[k] === undefined || proxy[k] === null) && delete proxy[k]);
                         }
 
                         if (proxy) {
