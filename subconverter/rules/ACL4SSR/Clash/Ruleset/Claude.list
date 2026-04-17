@@ -1,6 +1,6 @@
 # 内容：Claude
 # 数量：2条
-# 2026年3月15日更新
+# 2026年4月17日更新
 
 DOMAIN,servd-anthropic-website.b-cdn.net
 DOMAIN,cdn.usefathom.com
@@ -10,3 +10,5 @@ DOMAIN-SUFFIX,claude.ai
 DOMAIN-SUFFIX,claude.com
 DOMAIN-SUFFIX,claudemcpclient.com
 DOMAIN-SUFFIX,claudeusercontent.com
+DOMAIN-SUFFIX,datadoghq.com
+
